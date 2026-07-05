@@ -1,0 +1,40 @@
+name: 1. Build & Push Image
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_ID: mtproto-proxy-499913            # 👈 Replace
+  GAR_LOCATION: us-central1                 # 👈 Replace
+  REPOSITORY: stock               # 👈 Replace
+  IMAGE_NAME: stock-app                        # 👈 Replace
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Configure Docker for Artifact Registry
+      run: |
+        gcloud auth configure-docker ${{ env.GAR_LOCATION }}-docker.pkg.dev --quiet
+
+    - name: Build and Push Docker Image
+      run: |
+        # Tagging with the specific Git Commit SHA for unique tracking
+        IMAGE_URI="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+        
+        docker build -t $IMAGE_URI .
+        docker push $IMAGE_URI
