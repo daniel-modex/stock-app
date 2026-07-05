@@ -1,0 +1,352 @@
+<!-- Modal Backdrop -->
+<div *ngIf="ticker" class="fixed inset-0 z-[999] flex items-start justify-center overflow-y-auto bg-black/80 backdrop-blur-sm p-4" (click)="close()">
+  <!-- Modal Panel -->
+  <div class="relative w-full max-w-6xl my-4 bg-[#0D0E12] border border-gray-800 rounded-xl shadow-2xl" (click)="$event.stopPropagation()">
+
+    <!-- ── Header ─────────────────────────────────────────────────────────── -->
+    <div class="flex items-start justify-between px-6 py-4 border-b border-gray-800">
+      <div>
+        <div class="flex items-center gap-3">
+          <h2 class="text-2xl font-display font-bold text-white tracking-tight">{{ ticker }}</h2>
+          <span *ngIf="marketData" class="text-sm text-quartzgray font-mono">{{ marketData.company_name }}</span>
+          <span *ngIf="marketData" class="text-[10px] border border-gray-700 px-1.5 py-0.5 rounded font-mono text-quartzgray">{{ marketData.sector }}</span>
+        </div>
+        <div *ngIf="marketData" class="flex items-baseline gap-3 mt-1">
+          <span class="text-3xl font-display font-bold text-white">₹{{ marketData.current_price | number:'1.2-2' }}</span>
+          <span class="text-sm font-mono" [class.text-mintaccent]="dailyChange >= 0" [class.text-crimsondanger]="dailyChange < 0">
+            {{ dailyChange >= 0 ? '+' : '' }}{{ dailyChange | number:'1.2-2' }}% today
+          </span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- Period selector -->
+        <div class="flex rounded overflow-hidden border border-gray-700">
+          <button *ngFor="let p of periods" (click)="setPeriod(p)"
+            class="px-3 py-1.5 text-[10px] font-mono transition-colors"
+            [class.bg-mintaccent]="period === p" [class.text-obsidian]="period === p"
+            [class.text-quartzgray]="period !== p" [class.hover:text-white]="period !== p">
+            {{ p.toUpperCase() }}
+          </button>
+        </div>
+        <!-- Chart mode toggle -->
+        <div class="flex rounded overflow-hidden border border-gray-700">
+          <button (click)="setChartMode('line')" class="px-3 py-1.5 text-[10px] font-mono transition-colors"
+            [class.bg-gray-700]="chartMode==='line'" [class.text-white]="chartMode==='line'" [class.text-quartzgray]="chartMode!=='line'">LINE</button>
+          <button (click)="setChartMode('candle')" class="px-3 py-1.5 text-[10px] font-mono transition-colors"
+            [class.bg-gray-700]="chartMode==='candle'" [class.text-white]="chartMode==='candle'" [class.text-quartzgray]="chartMode!=='candle'">CANDLE</button>
+        </div>
+        <!-- Close -->
+        <button (click)="close()" class="text-quartzgray hover:text-white p-2 transition-colors rounded border border-transparent hover:border-gray-700">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Loading state ──────────────────────────────────────────────────── -->
+    <div *ngIf="loadingMarket" class="flex flex-col items-center justify-center py-24 gap-3">
+      <svg class="animate-spin h-10 w-10 text-mintaccent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <p class="text-xs text-quartzgray font-mono">Fetching market data & computing indicators…</p>
+    </div>
+
+    <div *ngIf="marketError" class="text-crimsondanger text-xs font-mono px-6 py-4">[ERR] {{ marketError }}</div>
+
+    <!-- ── Main content (charts + panels) ────────────────────────────────── -->
+    <div *ngIf="!loadingMarket && marketData" class="p-6 space-y-6">
+
+      <!-- Row 1: Charts on left, Signals + Fundamentals on right -->
+      <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+
+        <!-- Chart Column (2/3) -->
+        <div class="xl:col-span-2 space-y-3">
+
+          <!-- ── Price Chart ── -->
+          <div class="bg-slatecard border border-gray-800 rounded-lg p-4">
+            <div class="flex justify-between items-center mb-3">
+              <span class="text-[10px] font-mono text-quartzgray uppercase tracking-widest">PRICE CHART — {{ period.toUpperCase() }}</span>
+              <div class="flex items-center gap-3 text-[9px] font-mono text-quartzgray">
+                <span class="flex items-center gap-1"><span class="inline-block w-6 h-0.5 bg-yellow-400"></span>MA20</span>
+                <span class="flex items-center gap-1"><span class="inline-block w-6 h-0.5 bg-blue-400"></span>MA50</span>
+                <span class="flex items-center gap-1"><span class="inline-block w-6 h-0.5 bg-purple-400 opacity-50"></span>BB</span>
+              </div>
+            </div>
+
+            <!-- Hover tooltip -->
+            <div *ngIf="hoverIndex !== null" class="mb-2 flex items-center gap-4 text-xs font-mono">
+              <span class="text-quartzgray">{{ hoverDate }}</span>
+              <span class="text-white font-bold">₹{{ hoverPrice | number:'1.2-2' }}</span>
+              <span class="text-quartzgray">Vol: {{ hoverVolume | number }}</span>
+            </div>
+
+            <svg [attr.viewBox]="'0 0 ' + W + ' ' + H" class="w-full"
+              (mousemove)="onChartMouseMove($event, $any($event.target).closest('svg'))"
+              (mouseleave)="onChartMouseLeave()">
+
+              <!-- Price axis labels -->
+              <g *ngFor="let tick of priceAxis">
+                <line [attr.x1]="PL - 4" [attr.y1]="tick.y" [attr.x2]="W - PR" [attr.y2]="tick.y"
+                  stroke="#1e2330" stroke-width="1"/>
+                <text [attr.x]="PL - 6" [attr.y]="tick.y + 4" fill="#5a6272" font-size="9" text-anchor="end" font-family="monospace">{{ tick.label }}</text>
+              </g>
+
+              <!-- Bollinger Band fill -->
+              <path [attr.d]="bbFillPath()" fill="rgba(139,92,246,0.07)" stroke="none"/>
+
+              <!-- Bollinger Band lines -->
+              <path [attr.d]="overlayPath(marketData.bb.upper)" fill="none" stroke="rgba(139,92,246,0.5)" stroke-width="1" stroke-dasharray="3,2"/>
+              <path [attr.d]="overlayPath(marketData.bb.lower)" fill="none" stroke="rgba(139,92,246,0.5)" stroke-width="1" stroke-dasharray="3,2"/>
+
+              <!-- Area fill (line mode) -->
+              <defs>
+                <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#00E699" stop-opacity="0.15"/>
+                  <stop offset="100%" stop-color="#00E699" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+
+              <!-- Line chart -->
+              <ng-container *ngIf="chartMode === 'line'">
+                <path [attr.d]="areaPath" fill="url(#areaGrad)" stroke="none"/>
+                <path [attr.d]="linePath" fill="none" stroke="#00E699" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+              </ng-container>
+
+              <!-- Candlestick chart -->
+              <ng-container *ngIf="chartMode === 'candle'">
+                <ng-container *ngFor="let c of candles">
+                  <!-- Wick -->
+                  <line [attr.x1]="c.x" [attr.y1]="c.h" [attr.x2]="c.x" [attr.y2]="c.l"
+                    [attr.stroke]="c.bullish ? '#00E699' : '#FF4D4D'" stroke-width="1"/>
+                  <!-- Body -->
+                  <rect
+                    [attr.x]="c.x - candleWidth/2" [attr.y]="c.bullish ? c.c : c.o"
+                    [attr.width]="candleWidth" [attr.height]="Math.abs(c.o - c.c) || 1"
+                    [attr.fill]="c.bullish ? '#00E699' : '#FF4D4D'"
+                    [attr.fill-opacity]="0.85"/>
+                </ng-container>
+              </ng-container>
+
+              <!-- MA overlays -->
+              <path [attr.d]="overlayPath(marketData.ma20)" fill="none" stroke="#FBBF24" stroke-width="1.2"/>
+              <path [attr.d]="overlayPath(marketData.ma50)" fill="none" stroke="#60A5FA" stroke-width="1.2"/>
+
+              <!-- Hover crosshair -->
+              <g *ngIf="hoverIndex !== null">
+                <line [attr.x1]="hoverX" [attr.y1]="PT" [attr.x2]="hoverX" [attr.y2]="H - PB"
+                  stroke="#8E95A5" stroke-width="1" stroke-dasharray="3,2"/>
+                <circle [attr.cx]="hoverX" [attr.cy]="scaleY(hoverPrice)" r="4"
+                  fill="#00E699" stroke="#0D0E12" stroke-width="1.5"/>
+              </g>
+            </svg>
+          </div>
+
+          <!-- ── Volume bars ── -->
+          <div class="bg-slatecard border border-gray-800 rounded-lg p-4">
+            <span class="text-[10px] font-mono text-quartzgray uppercase tracking-widest">VOLUME</span>
+            <svg [attr.viewBox]="'0 0 ' + W + ' ' + (VH + PT + PB)" class="w-full mt-2">
+              <ng-container *ngFor="let vol of marketData.volumes; let i = index">
+                <rect
+                  [attr.x]="scaleX(i) - Math.max(1, (CW/marketData.volumes.length)*0.4)"
+                  [attr.y]="PT + VH - volumeBarHeight(vol)"
+                  [attr.width]="Math.max(1, (CW/marketData.volumes.length)*0.8)"
+                  [attr.height]="volumeBarHeight(vol)"
+                  [attr.fill]="marketData.closes[i] >= marketData.opens[i] ? 'rgba(0,230,153,0.5)' : 'rgba(255,77,77,0.5)'"/>
+              </ng-container>
+              <line [attr.x1]="PL" [attr.y1]="PT + VH" [attr.x2]="W - PR" [attr.y2]="PT + VH" stroke="#1e2330" stroke-width="1"/>
+            </svg>
+          </div>
+
+          <!-- ── RSI chart ── -->
+          <div class="bg-slatecard border border-gray-800 rounded-lg p-4">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-[10px] font-mono text-quartzgray uppercase tracking-widest">RSI (14)</span>
+              <span class="text-xs font-mono" [ngStyle]="{'color': signalColor(marketData.signals.rsi_signal)}">
+                {{ marketData.signals.rsi_value | number:'1.1-1' }} — {{ marketData.signals.rsi_signal }}
+              </span>
+            </div>
+            <svg [attr.viewBox]="'0 0 ' + W + ' ' + (RH + PT + PB)" class="w-full">
+              <!-- Zones -->
+              <rect [attr.x]="PL" [attr.y]="PT" [attr.width]="CW" [attr.height]="rsiY(70) - PT" fill="rgba(255,77,77,0.05)"/>
+              <rect [attr.x]="PL" [attr.y]="rsiY(30)" [attr.width]="CW" [attr.height]="PT + RH - rsiY(30)" fill="rgba(0,230,153,0.05)"/>
+              <line [attr.x1]="PL" [attr.y1]="rsiY(70)" [attr.x2]="W-PR" [attr.y2]="rsiY(70)" stroke="rgba(255,77,77,0.3)" stroke-width="1" stroke-dasharray="2,2"/>
+              <line [attr.x1]="PL" [attr.y1]="rsiY(50)" [attr.x2]="W-PR" [attr.y2]="rsiY(50)" stroke="#1e2330" stroke-width="1"/>
+              <line [attr.x1]="PL" [attr.y1]="rsiY(30)" [attr.x2]="W-PR" [attr.y2]="rsiY(30)" stroke="rgba(0,230,153,0.3)" stroke-width="1" stroke-dasharray="2,2"/>
+              <text [attr.x]="PL - 6" [attr.y]="rsiY(70) + 4" fill="#5a6272" font-size="9" text-anchor="end" font-family="monospace">70</text>
+              <text [attr.x]="PL - 6" [attr.y]="rsiY(30) + 4" fill="#5a6272" font-size="9" text-anchor="end" font-family="monospace">30</text>
+              <path [attr.d]="rsiPath" fill="none" stroke="#6366F1" stroke-width="1.5"/>
+            </svg>
+          </div>
+
+          <!-- ── MACD chart ── -->
+          <div class="bg-slatecard border border-gray-800 rounded-lg p-4">
+            <div class="flex justify-between items-center mb-1">
+              <span class="text-[10px] font-mono text-quartzgray uppercase tracking-widest">MACD (12/26/9)</span>
+              <span class="text-xs font-mono" [ngStyle]="{'color': signalColor(marketData.signals.macd_signal)}">{{ marketData.signals.macd_signal }}</span>
+            </div>
+            <svg [attr.viewBox]="'0 0 ' + W + ' ' + (MH + PT + PB)" class="w-full">
+              <!-- Zero line -->
+              <line [attr.x1]="PL" [attr.y1]="macdZeroY" [attr.x2]="W - PR" [attr.y2]="macdZeroY" stroke="#1e2330" stroke-width="1"/>
+              <!-- Histogram bars -->
+              <ng-container *ngFor="let h of macdData?.histogram; let i = index">
+                <rect *ngIf="h !== null"
+                  [attr.x]="scaleX(i) - Math.max(1, (CW/marketData.closes.length)*0.3)"
+                  [attr.y]="h >= 0 ? macdY(h) : macdZeroY"
+                  [attr.width]="Math.max(1, (CW/marketData.closes.length)*0.6)"
+                  [attr.height]="Math.abs(macdY(h) - macdZeroY)"
+                  [attr.fill]="h >= 0 ? 'rgba(0,230,153,0.5)' : 'rgba(255,77,77,0.5)'"/>
+              </ng-container>
+              <path [attr.d]="macdLinePath(macdData?.macd || [])" fill="none" stroke="#60A5FA" stroke-width="1.2"/>
+              <path [attr.d]="macdLinePath(macdData?.signal || [])" fill="none" stroke="#F59E0B" stroke-width="1.2"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Right Column: Signals + Fundamentals (1/3) -->
+        <div class="space-y-4">
+
+          <!-- ── Holdings position (if user holds this stock) ── -->
+          <div *ngIf="holding" class="bg-slatecard border rounded-lg p-4" [ngStyle]="{'border-color': holdingPnL >= 0 ? 'rgba(0,230,153,0.3)' : 'rgba(255,77,77,0.3)'}">
+            <h3 class="text-[10px] font-mono text-quartzgray uppercase tracking-widest mb-3">YOUR POSITION</h3>
+            <div class="space-y-2">
+              <div class="flex justify-between text-xs font-mono">
+                <span class="text-quartzgray">Shares Held</span>
+                <span class="text-white font-bold">{{ holding.quantity | number:'1.0-2' }}</span>
+              </div>
+              <div class="flex justify-between text-xs font-mono">
+                <span class="text-quartzgray">Avg Buy Price</span>
+                <span class="text-white">₹{{ holding.average_buy_price | number:'1.2-2' }}</span>
+              </div>
+              <div class="flex justify-between text-xs font-mono">
+                <span class="text-quartzgray">Current Value</span>
+                <span class="text-white">₹{{ (marketData.current_price * holding.quantity) | number:'1.0-0' }}</span>
+              </div>
+              <div class="border-t border-gray-800 pt-2 mt-2 flex justify-between text-xs font-mono">
+                <span class="text-quartzgray">Unrealized P&L</span>
+                <div class="text-right">
+                  <div [class.text-mintaccent]="holdingPnL >= 0" [class.text-crimsondanger]="holdingPnL < 0" class="font-bold">
+                    {{ holdingPnL >= 0 ? '+' : '' }}₹{{ holdingPnL | number:'1.0-0' }}
+                  </div>
+                  <div [class.text-mintaccent]="holdingPnLPct >= 0" [class.text-crimsondanger]="holdingPnLPct < 0" class="text-[10px]">
+                    {{ holdingPnLPct >= 0 ? '+' : '' }}{{ holdingPnLPct | number:'1.1-1' }}%
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Technical Signals ── -->
+          <div class="bg-slatecard border border-gray-800 rounded-lg p-4">
+            <h3 class="text-[10px] font-mono text-quartzgray uppercase tracking-widest mb-3">TECHNICAL SIGNALS</h3>
+            <div class="space-y-2">
+              <ng-container *ngFor="let sig of [
+                { label: 'RSI', value: marketData.signals.rsi_signal, sub: (marketData.signals.rsi_value | number:'1.0-0') },
+                { label: 'MA Cross', value: marketData.signals.ma_cross, sub: null },
+                { label: 'MACD', value: marketData.signals.macd_signal, sub: null },
+                { label: 'Bollinger', value: marketData.signals.bb_position, sub: null },
+                { label: 'Volume', value: marketData.signals.volume_trend, sub: null }
+              ]">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-mono text-quartzgray">{{ sig.label }}</span>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded" [ngStyle]="{'color': signalColor(sig.value), 'background': signalColor(sig.value) + '1a'}">
+                    {{ sig.value }}{{ sig.sub ? ' (' + sig.sub + ')' : '' }}
+                  </span>
+                </div>
+              </ng-container>
+            </div>
+
+            <!-- 52W bar -->
+            <div class="mt-4 pt-3 border-t border-gray-800">
+              <div class="flex justify-between text-[9px] text-quartzgray font-mono mb-1">
+                <span>52W Low ₹{{ marketData.week52_low | number:'1.0-0' }}</span>
+                <span>52W High ₹{{ marketData.week52_high | number:'1.0-0' }}</span>
+              </div>
+              <div class="relative h-2 bg-obsidian rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-crimsondanger via-yellow-400 to-mintaccent rounded-full" style="width:100%"></div>
+                <div class="absolute top-0 h-full w-0.5 bg-white" [style.left.%]="week52Pct"></div>
+              </div>
+              <p class="text-center text-[9px] text-quartzgray font-mono mt-1">
+                {{ marketData.signals.price_vs_52w_high_pct | number:'1.1-1' }}% from 52W High
+              </p>
+            </div>
+          </div>
+
+          <!-- ── Fundamentals ── -->
+          <div class="bg-slatecard border border-gray-800 rounded-lg p-4">
+            <h3 class="text-[10px] font-mono text-quartzgray uppercase tracking-widest mb-3">FUNDAMENTALS</h3>
+            <div class="space-y-2">
+              <ng-container *ngFor="let f of [
+                { label: 'Market Cap', value: marketData.market_cap ? '₹' + (marketData.market_cap / 1e9 | number:'1.1-1') + 'B' : 'N/A' },
+                { label: 'Trailing P/E', value: marketData.trailing_pe ? (marketData.trailing_pe | number:'1.2-2') : 'N/A' },
+                { label: 'Forward P/E', value: marketData.forward_pe ? (marketData.forward_pe | number:'1.2-2') : 'N/A' },
+                { label: 'Dividend Yield', value: marketData.dividend_yield ? (marketData.dividend_yield * 100 | number:'1.2-2') + '%' : 'N/A' },
+                { label: 'Beta', value: marketData.beta ? (marketData.beta | number:'1.2-2') : 'N/A' },
+                { label: 'Avg Volume', value: marketData.avg_volume ? (marketData.avg_volume | number) : 'N/A' },
+                { label: 'Industry', value: marketData.industry }
+              ]">
+                <div class="flex items-center justify-between">
+                  <span class="text-[10px] font-mono text-quartzgray">{{ f.label }}</span>
+                  <span class="text-[10px] font-mono text-white">{{ f.value }}</span>
+                </div>
+              </ng-container>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── AI Verdict + Report ── -->
+      <div class="bg-slatecard border border-gray-800 rounded-lg p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-[10px] font-mono text-quartzgray uppercase tracking-widest">AI ANALYSIS & DECISION</h3>
+          <button (click)="runAI()" [disabled]="loadingAI"
+            class="text-[10px] font-mono border border-gray-700 text-quartzgray hover:text-white hover:border-mintaccent px-3 py-1 rounded transition-colors disabled:opacity-50">
+            {{ loadingAI ? 'ANALYSING...' : '↺ RE-RUN ANALYSIS' }}
+          </button>
+        </div>
+
+        <!-- Verdict badge -->
+        <div *ngIf="aiVerdict" class="flex items-stretch gap-4 mb-5 p-4 rounded-lg border" [ngStyle]="{'border-color': verdictColor + '33', 'background': verdictBg}">
+          <div class="flex flex-col items-center justify-center w-24 flex-shrink-0">
+            <div class="text-4xl font-display font-black" [ngStyle]="{'color': verdictColor}">{{ aiVerdict.verdict }}</div>
+            <div class="text-[10px] font-mono text-quartzgray mt-1">{{ aiVerdict.confidence }}% confidence</div>
+            <!-- Confidence ring -->
+            <svg class="w-10 h-10 mt-2" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="14" fill="none" stroke="#1e2330" stroke-width="4"/>
+              <circle cx="18" cy="18" r="14" fill="none" [attr.stroke]="verdictColor" stroke-width="4"
+                [attr.stroke-dasharray]="(aiVerdict.confidence / 100 * 88) + ' 88'"
+                stroke-dashoffset="22" stroke-linecap="round" transform="rotate(-90 18 18)"/>
+            </svg>
+          </div>
+          <div class="border-l border-gray-700 pl-4">
+            <p class="text-[10px] font-mono text-quartzgray uppercase tracking-widest mb-2">KEY REASONS</p>
+            <ul class="space-y-1.5">
+              <li *ngFor="let r of aiVerdict.key_reasons" class="flex items-start gap-2 text-xs font-mono text-white">
+                <span [ngStyle]="{'color': verdictColor}" class="mt-0.5 flex-shrink-0">▸</span>
+                {{ r }}
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- AI loading spinner -->
+        <div *ngIf="loadingAI" class="flex items-center gap-3 py-6">
+          <svg class="animate-spin h-5 w-5 text-mintaccent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span class="text-xs text-quartzgray font-mono">Gemini AI is analysing {{ ticker }}{{ holding ? ' with your position context' : '' }}…</span>
+        </div>
+
+        <div *ngIf="aiError" class="text-crimsondanger text-xs font-mono">[ERR] {{ aiError }}</div>
+
+        <!-- Full markdown report -->
+        <div *ngIf="reportWithoutJson" class="gemini-markdown prose prose-invert prose-sm max-w-none text-sm text-gray-300 leading-relaxed border-t border-gray-800 pt-4 mt-2"
+          [innerHTML]="reportWithoutJson | markdownToHtml">
+        </div>
+        <div *ngIf="reportWithoutJson && !aiVerdict" class="text-[11px] font-mono text-gray-500 whitespace-pre-wrap border-t border-gray-800 pt-4 mt-2">{{ reportWithoutJson }}</div>
+      </div>
+
+    </div>
+  </div>
+</div>

@@ -1,0 +1,152 @@
+<div class="h-full flex flex-col">
+  <!-- Empty State if no stock is selected -->
+  <div *ngIf="!stock" class="flex-1 flex flex-col items-center justify-center text-center p-12 max-w-xl mx-auto">
+    <div class="w-16 h-16 rounded-full bg-slatecard border border-gray-800 flex items-center justify-center text-quartzgray text-3xl mb-4">
+      ⎋
+    </div>
+    <h3 class="text-lg font-display font-medium text-white mb-2">No Security Selected</h3>
+    <p class="text-sm text-quartzgray">
+      Select a security from the watchlist or enter a new ticker symbol in the top bar to initialize real-time metrics and load the Gemini equity research report.
+    </p>
+  </div>
+
+  <!-- Detailed Dashboard Workspace -->
+  <div *ngIf="stock" class="flex-1 p-6 flex flex-col gap-6">
+    <!-- Header with Action Buttons -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-800 pb-4">
+      <div>
+        <div class="flex items-center gap-3">
+          <span class="text-[10px] bg-mintaccent bg-opacity-20 text-mintaccent font-mono px-2 py-0.5 rounded tracking-wide uppercase">Active Asset</span>
+          <span class="text-xs text-quartzgray font-mono">ID: {{ stock.id }}</span>
+        </div>
+        <h2 class="text-2xl font-display font-bold text-white tracking-tight mt-1">{{ stock.ticker }} — {{ stock.company_name }}</h2>
+      </div>
+
+      <!-- Action Panel -->
+      <div class="flex items-center gap-2">
+        <button 
+          (click)="runOnDemandAnalysis()"
+          [disabled]="isAnalyzing"
+          class="bg-mintaccent hover:bg-opacity-90 text-obsidian text-xs font-display font-bold px-4 py-2 rounded flex items-center gap-2 transition-all disabled:opacity-50"
+        >
+          <!-- Spinner -->
+          <svg *ngIf="isAnalyzing" class="animate-spin h-3.5 w-3.5 text-obsidian" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          {{ isAnalyzing ? 'GENERATING AI MODEL...' : 'RUN ON-DEMAND AI ANALYSIS' }}
+        </button>
+
+        <button 
+          (click)="triggerDelete()"
+          class="border border-gray-700 hover:border-crimsondanger hover:text-crimsondanger text-quartzgray text-xs font-display font-bold px-3 py-2 rounded transition-colors"
+        >
+          DELETE STOCK
+        </button>
+      </div>
+    </div>
+
+    <!-- Error Banner -->
+    <div *ngIf="errorMessage" class="bg-crimsondanger bg-opacity-20 border border-crimsondanger text-crimsondanger text-xs p-4 rounded font-mono">
+      [ON-DEMAND AI FAULT]: {{ errorMessage }}
+    </div>
+
+    <!-- Quantitative Metrics Grid -->
+    <div>
+      <h3 class="text-xs font-mono font-bold tracking-widest text-quartzgray uppercase mb-3">QUANTITATIVE FUNDAMENTALS</h3>
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <!-- Current Price -->
+        <div class="bg-slatecard border border-gray-800 rounded p-4">
+          <div class="text-[10px] text-quartzgray font-mono uppercase tracking-wider">Current Price</div>
+          <div class="text-xl font-mono font-bold text-white mt-1">{{ stock.latest_metrics?.current_price | currency }}</div>
+          <div class="text-[9px] text-quartzgray font-mono mt-1 flex items-center gap-1">
+            <span>Fetched:</span>
+            <span>{{ stock.latest_metrics?.fetched_at | date:'HH:mm' }}</span>
+          </div>
+        </div>
+
+        <!-- Trailing PE -->
+        <div class="bg-slatecard border border-gray-800 rounded p-4">
+          <div class="text-[10px] text-quartzgray font-mono uppercase tracking-wider">Trailing PE</div>
+          <div class="text-xl font-mono font-bold text-white mt-1">
+            {{ stock.latest_metrics?.trailing_pe ? (stock.latest_metrics?.trailing_pe | number:'1.2-2') : 'N/A' }}
+          </div>
+          <div class="text-[9px] text-quartzgray font-mono mt-1">valuation multiple</div>
+        </div>
+
+        <!-- Market Capitalization -->
+        <div class="bg-slatecard border border-gray-800 rounded p-4 col-span-1">
+          <div class="text-[10px] text-quartzgray font-mono uppercase tracking-wider">Market Cap</div>
+          <div class="text-xl font-mono font-bold text-white mt-1">
+            {{ stock.latest_metrics?.market_cap ? (stock.latest_metrics?.market_cap | number) : 'N/A' }}
+          </div>
+          <div class="text-[9px] text-quartzgray font-mono mt-1">capitalization size</div>
+        </div>
+
+        <!-- 52-Week High / Low -->
+        <div class="bg-slatecard border border-gray-800 rounded p-4">
+          <div class="text-[10px] text-quartzgray font-mono uppercase tracking-wider">52W High / Low</div>
+          <div class="text-sm font-mono font-bold text-white mt-1.5 flex flex-col">
+            <span class="text-mintaccent">H: {{ stock.latest_metrics?.fifty_two_week_high | currency }}</span>
+            <span class="text-crimsondanger">L: {{ stock.latest_metrics?.fifty_two_week_low | currency }}</span>
+          </div>
+        </div>
+
+        <!-- Daily Trade Volume -->
+        <div class="bg-slatecard border border-gray-800 rounded p-4">
+          <div class="text-[10px] text-quartzgray font-mono uppercase tracking-wider">Daily Volume</div>
+          <div class="text-xl font-mono font-bold text-white mt-1">
+            {{ stock.latest_metrics?.volume ? (stock.latest_metrics?.volume | number) : 'N/A' }}
+          </div>
+          <div class="text-[9px] text-quartzgray font-mono mt-1">traded shares</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7-Day Historical Close Price Array -->
+    <div>
+      <h3 class="text-xs font-mono font-bold tracking-widest text-quartzgray uppercase mb-3">7-DAY HISTORICAL CLOSE SEQUENCE</h3>
+      <div class="bg-slatecard border border-gray-800 rounded p-4 overflow-x-auto">
+        <table class="w-full text-left text-xs font-mono">
+          <thead>
+            <tr class="border-b border-gray-800 text-quartzgray">
+              <th *ngFor="let price of stock.latest_metrics?.price_history_7d; let i = index" class="pb-2">Day {{ i + 1 }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td *ngFor="let price of stock.latest_metrics?.price_history_7d" class="pt-2 font-bold text-white">
+                {{ price | currency }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Gemini Research Report Output Container -->
+    <div class="flex-1 flex flex-col">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="text-xs font-mono font-bold tracking-widest text-quartzgray uppercase">GEMINI RESEARCH REPORT</h3>
+        <div class="flex items-center gap-2 text-[9px] text-quartzgray font-mono">
+          <span>Trigger:</span>
+          <span class="bg-gray-800 text-alabaster px-1.5 py-0.5 rounded uppercase">{{ stock.latest_report?.trigger_type }}</span>
+          <span class="hidden sm:inline">|</span>
+          <span class="hidden sm:inline">Generated: {{ stock.latest_report?.created_at | date:'yyyy-MM-dd HH:mm' }}</span>
+        </div>
+      </div>
+
+      <!-- Markdown Report Frame -->
+      <div class="flex-1 bg-slatecard border border-gray-800 rounded p-6 overflow-y-auto max-h-[500px]">
+        <div 
+          *ngIf="reportHtml" 
+          [innerHTML]="reportHtml" 
+          class="gemini-markdown prose prose-invert max-w-none text-xs leading-relaxed"
+        ></div>
+        <div *ngIf="!reportHtml" class="text-center py-16 text-quartzgray font-mono">
+          No report generated. Click "Run On-Demand AI Analysis" to compile.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

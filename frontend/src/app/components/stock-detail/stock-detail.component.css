@@ -1,0 +1,91 @@
+/* Custom styles for rendering markdown output of Gemini */
+.gemini-markdown ::ng-deep h1 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #1E293B;
+  padding-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.gemini-markdown ::ng-deep h2 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.0rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.gemini-markdown ::ng-deep h3 {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #E2E8F0;
+  margin-top: 1.0rem;
+  margin-bottom: 0.5rem;
+}
+
+.gemini-markdown ::ng-deep p {
+  margin-bottom: 0.75rem;
+  color: #D1D5DB;
+  line-height: 1.6;
+}
+
+.gemini-markdown ::ng-deep ul {
+  list-style-type: square;
+  padding-left: 1.25rem;
+  margin-bottom: 0.75rem;
+  color: #D1D5DB;
+}
+
+.gemini-markdown ::ng-deep li {
+  margin-bottom: 0.25rem;
+}
+
+.gemini-markdown ::ng-deep strong {
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+/* Quote styles for GitHub alerts */
+.gemini-markdown ::ng-deep blockquote {
+  background-color: #0D0E12;
+  border-left: 4px solid #00E699;
+  padding: 0.75rem 1.0rem;
+  margin: 1.0rem 0;
+  border-radius: 4px;
+}
+
+.gemini-markdown ::ng-deep blockquote p {
+  margin-bottom: 0 !important;
+  font-size: 0.75rem !important;
+  color: #00E699;
+  font-family: monospace;
+}
+
+/* Warnings and caution styling */
+.gemini-markdown ::ng-deep blockquote:has(strong:contains("[!WARNING]")),
+.gemini-markdown ::ng-deep blockquote:has(p:contains("[!WARNING]")) {
+  border-left-color: #FBBF24 !important;
+  color: #FBBF24 !important;
+}
+
+.gemini-markdown ::ng-deep blockquote:has(strong:contains("[!CAUTION]")),
+.gemini-markdown ::ng-deep blockquote:has(p:contains("[!CAUTION]")) {
+  border-left-color: #FF4D4D !important;
+  color: #FF4D4D !important;
+}
+
+.gemini-markdown ::ng-deep code {
+  font-family: 'JetBrains Mono', monospace;
+  background-color: #0D0E12;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.85em;
+  color: #FF4D4D;
+}

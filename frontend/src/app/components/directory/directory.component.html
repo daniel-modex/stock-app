@@ -1,0 +1,154 @@
+<div class="h-[calc(100vh-57px)] overflow-y-auto bg-obsidian text-alabaster p-6">
+
+  <!-- Page Header -->
+  <div class="mb-6">
+    <h2 class="text-lg font-display font-bold text-white tracking-tight">MARKET DIRECTORY</h2>
+    <p class="text-xs text-quartzgray font-mono mt-0.5">Live Nifty 50 securities cache — refreshed on server startup</p>
+  </div>
+
+  <!-- Gainers / Losers ribbon -->
+  <div *ngIf="!isLoading && allStocks.length > 0" class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+
+    <!-- Top Gainers -->
+    <div class="bg-slatecard border border-gray-800 rounded p-4">
+      <h3 class="text-[10px] font-mono text-mintaccent uppercase tracking-widest mb-3">▲ TOP GAINERS</h3>
+      <div class="space-y-2">
+        <div *ngFor="let s of gainers" class="flex items-center justify-between">
+          <div>
+            <span class="text-xs font-mono font-bold text-white">{{ s.ticker }}</span>
+            <span class="text-[10px] text-quartzgray ml-2">{{ s.company_name }}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-mono text-white">₹{{ s.current_price | number:'1.2-2' }}</span>
+            <span class="text-xs font-mono text-mintaccent bg-mintaccent/10 px-2 py-0.5 rounded">+{{ s.change_percentage | number:'1.2-2' }}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Losers -->
+    <div class="bg-slatecard border border-gray-800 rounded p-4">
+      <h3 class="text-[10px] font-mono text-crimsondanger uppercase tracking-widest mb-3">▼ TOP LOSERS</h3>
+      <div class="space-y-2">
+        <div *ngFor="let s of losers" class="flex items-center justify-between">
+          <div>
+            <span class="text-xs font-mono font-bold text-white">{{ s.ticker }}</span>
+            <span class="text-[10px] text-quartzgray ml-2">{{ s.company_name }}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-mono text-white">₹{{ s.current_price | number:'1.2-2' }}</span>
+            <span class="text-xs font-mono text-crimsondanger bg-crimsondanger/10 px-2 py-0.5 rounded">{{ s.change_percentage | number:'1.2-2' }}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Search bar -->
+  <div class="mb-4 flex items-center gap-3">
+    <div class="relative flex-1 max-w-md">
+      <svg class="absolute left-3 top-2.5 w-3.5 h-3.5 text-quartzgray" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0"/>
+      </svg>
+      <input
+        type="text"
+        [(ngModel)]="searchQuery"
+        (ngModelChange)="applyFilter()"
+        placeholder="Filter by ticker or company name..."
+        class="w-full bg-slatecard border border-gray-700 rounded pl-9 pr-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-mintaccent transition-colors"
+      />
+    </div>
+    <span class="text-[10px] text-quartzgray font-mono">{{ filtered.length }} of {{ allStocks.length }} securities</span>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="isLoading" class="flex items-center justify-center py-24">
+    <div class="text-center">
+      <svg class="animate-spin h-8 w-8 text-mintaccent mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      <p class="text-xs text-quartzgray font-mono">Fetching Nifty 50 live data...</p>
+      <p class="text-[10px] text-gray-700 font-mono mt-1">Background cache populating in parallel</p>
+    </div>
+  </div>
+
+  <!-- Empty cache state -->
+  <div *ngIf="!isLoading && allStocks.length === 0" class="text-center py-20 border border-dashed border-gray-800 rounded bg-slatecard">
+    <div class="text-4xl mb-3">🔄</div>
+    <h3 class="text-sm font-display font-medium text-white mb-2">Cache Still Loading</h3>
+    <p class="text-xs text-quartzgray">The background task is still fetching Nifty 50 data. Refresh the page in a few seconds.</p>
+  </div>
+
+  <!-- Directory Table -->
+  <div *ngIf="!isLoading && filtered.length > 0" class="bg-slatecard border border-gray-800 rounded overflow-hidden">
+    <table class="w-full text-xs font-mono">
+      <thead>
+        <tr class="border-b border-gray-800 text-quartzgray bg-obsidian/50">
+          <th (click)="setSort('ticker')" class="text-left px-4 py-3 uppercase tracking-widest text-[10px] cursor-pointer hover:text-white select-none">
+            Ticker {{ sortKey === 'ticker' ? (sortAsc ? '▲' : '▼') : '' }}
+          </th>
+          <th class="text-left px-4 py-3 uppercase tracking-widest text-[10px]">Company</th>
+          <th (click)="setSort('current_price')" class="text-right px-4 py-3 uppercase tracking-widest text-[10px] cursor-pointer hover:text-white select-none">
+            Price {{ sortKey === 'current_price' ? (sortAsc ? '▲' : '▼') : '' }}
+          </th>
+          <th (click)="setSort('change_percentage')" class="text-right px-4 py-3 uppercase tracking-widest text-[10px] cursor-pointer hover:text-white select-none">
+            1D Change {{ sortKey === 'change_percentage' ? (sortAsc ? '▲' : '▼') : '' }}
+          </th>
+          <th (click)="setSort('volume')" class="text-right px-4 py-3 uppercase tracking-widest text-[10px] cursor-pointer hover:text-white select-none">
+            Volume {{ sortKey === 'volume' ? (sortAsc ? '▲' : '▼') : '' }}
+          </th>
+          <th class="px-4 py-3"></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let s of filtered"
+          (click)="openModal(s.ticker)"
+          class="border-b border-gray-800 hover:bg-gray-800/40 transition-colors group cursor-pointer"
+        >
+          <td class="px-4 py-3 font-bold text-white">{{ s.ticker }}</td>
+          <td class="px-4 py-3 text-quartzgray truncate max-w-[200px]">{{ s.company_name }}</td>
+          <td class="px-4 py-3 text-right text-white">
+            <span *ngIf="s.current_price > 0">₹{{ s.current_price | number:'1.2-2' }}</span>
+            <span *ngIf="s.current_price <= 0" class="text-quartzgray">—</span>
+          </td>
+          <td class="px-4 py-3 text-right">
+            <span
+              class="px-2 py-0.5 rounded text-[10px]"
+              [class.text-mintaccent]="s.change_percentage >= 0"
+              [class.bg-mintaccent]="s.change_percentage >= 0"
+              [class.bg-opacity-10]="s.change_percentage >= 0"
+              [class.text-crimsondanger]="s.change_percentage < 0"
+              [class.bg-crimsondanger]="s.change_percentage < 0"
+            >
+              {{ s.change_percentage >= 0 ? '+' : '' }}{{ s.change_percentage | number:'1.2-2' }}%
+            </span>
+          </td>
+          <td class="px-4 py-3 text-right text-quartzgray">
+            <span *ngIf="s.volume > 0">{{ s.volume | number }}</span>
+            <span *ngIf="s.volume <= 0">—</span>
+          </td>
+          <td class="px-4 py-3">
+            <button
+              (click)="goToWatchlist(s.ticker)"
+              class="opacity-0 group-hover:opacity-100 transition-opacity text-[10px] font-mono text-mintaccent hover:text-white border border-mintaccent hover:border-white px-2 py-1 rounded"
+              title="Add to Watchlist"
+            >
+              + WATCHLIST
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- Stock Deep-Dive Modal (click any row to open) -->
+<app-stock-modal
+  *ngIf="modalTicker"
+  [ticker]="modalTicker"
+  (closed)="closeModal()"
+></app-stock-modal>
