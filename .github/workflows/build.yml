@@ -35,10 +35,8 @@ jobs:
         TAG="${{ github.sha }}"
         REGISTRY_URL="${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}"
         
-        # Build and Push Backend
-        docker build -t $REGISTRY_URL/stock-backend:$TAG ./backend
+        docker build -t $REGISTRY_URL/stock-backend:$TAG -f ./backend/Dockerfile ./backend
         docker push $REGISTRY_URL/stock-backend:$TAG
         
-        # Build and Push Frontend
-        docker build -t $REGISTRY_URL/stock-frontend:$TAG ./frontend
+        docker build -t $REGISTRY_URL/stock-frontend:$TAG -f ./frontend/Dockerfile ./frontend
         docker push $REGISTRY_URL/stock-frontend:$TAG
